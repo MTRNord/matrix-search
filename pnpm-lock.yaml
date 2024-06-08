@@ -1,0 +1,57 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@orama/orama':
+        specifier: ^2.0.19
+        version: 2.0.19
+      '@orama/plugin-data-persistence':
+        specifier: ^2.0.19
+        version: 2.0.19
+    devDependencies:
+      typescript:
+        specifier: ^5.4.5
+        version: 5.4.5
+
+packages:
+
+  '@msgpack/msgpack@2.8.0':
+    resolution: {integrity: sha512-h9u4u/jiIRKbq25PM+zymTyW6bhTzELvOoUd+AvYriWOAKpLGnIamaET3pnHYoI5iYphAHBI4ayx0MehR+VVPQ==}
+    engines: {node: '>= 10'}
+
+  '@orama/orama@2.0.19':
+    resolution: {integrity: sha512-9nlF5iYUghewRt2TDmAJO5TN4hYFPhql4d2ZAdJYJtGSIi2BZjMNQIqQ874w0q/rur67wp0AWLb020EakEN0aA==}
+    engines: {node: '>= 16.0.0'}
+
+  '@orama/plugin-data-persistence@2.0.19':
+    resolution: {integrity: sha512-u/ligext2UZuvfM3Nm1JckL7Y6MbT85rXODKtJzZuPdpc2+hilGon9Fmkp00ENBx+dAtzcK+3Q00AY1V5T3Mfg==}
+
+  dpack@0.6.22:
+    resolution: {integrity: sha512-WGPNlW2OAE7Bj0eODMpAHUcEqxrlg01e9OFZDxQodminIgC194/cRHT7K04Z1j7AUEWTeeplYGrIv/xRdwU9Hg==}
+
+  typescript@5.4.5:
+    resolution: {integrity: sha512-vcI4UpRgg81oIRUFwR0WSIHKt11nJ7SAVlYNIu+QpqeyXP+gpQJy/Z4+F0aGxSE4MqwjyXvW/TzgkLAx2AGHwQ==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
+snapshots:
+
+  '@msgpack/msgpack@2.8.0': {}
+
+  '@orama/orama@2.0.19': {}
+
+  '@orama/plugin-data-persistence@2.0.19':
+    dependencies:
+      '@msgpack/msgpack': 2.8.0
+      '@orama/orama': 2.0.19
+      dpack: 0.6.22
+
+  dpack@0.6.22: {}
+
+  typescript@5.4.5: {}
