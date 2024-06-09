@@ -79,7 +79,7 @@ async function backfill(client: MatrixClient, indexer: Indexer) {
                 if (await client.crypto.isRoomEncrypted(room)) {
                     await client.crypto.onRoomEvent(room, event);
                 } else {
-                    const res = await indexer.insert({ id: event["event_id"].replace("$", "").replace(":", "_").replace(".", "_"), sender: event["sender"], content: cleanContent(event["content"]), room_id: room });
+                    const res = await indexer.insert(convertEventToDocument(event, room));
                     console.info(`Indexed message:`, res);
                 }
             }
@@ -91,8 +91,20 @@ async function backfill(client: MatrixClient, indexer: Indexer) {
     }
 }
 
-async function run() {
+function normalizeEventId(eventId: string) {
+    return eventId.replace("$", "").replace(":", "_").replace(".", "_");
+}
 
+function convertEventToDocument(event: any, roomId: string) {
+    return {
+        id: normalizeEventId(event["event_id"]),
+        sender: event["sender"],
+        content: cleanContent(event["content"]),
+        room_id: roomId
+    }
+}
+
+async function run() {
     const storageProvider = new SimpleFsStorageProvider("./storage/bot.json");
     const cryptoProvider = new RustSdkCryptoStorageProvider("./storage/crypto", RustSdkCryptoStoreType.Sqlite);
 
@@ -106,15 +118,14 @@ async function run() {
     client.on("room.message", async (roomId, event) => {
         if (event["content"]["msgtype"] === "m.text") {
             console.info(`Received message in room ${roomId}`);
-            // TODO: Remove the original event if we have an edit
             if (event.content["m.relates_to"]) {
                 if (event.content["m.relates_to"].rel_type === "m.replace") {
                     console.info(`Removing original event ${event.content["m.relates_to"].event_id}`);
-                    await indexer.delete(event.content["m.relates_to"].event_id.replace("$", "").replace(":", "_").replace(".", "_"));
+                    await indexer.delete(normalizeEventId(event.content["m.relates_to"].event_id));
                 }
             }
 
-            const res = await indexer.insert({ id: event["event_id"].replace("$", "").replace(":", "_").replace(".", "_"), sender: event["sender"], content: cleanContent(event["content"]), room_id: roomId });
+            const res = await indexer.insert(convertEventToDocument(event, roomId));
             console.info(`Indexed message:`, res);
         }
     });
