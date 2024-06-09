@@ -2,6 +2,7 @@ import { MatrixClient, RustSdkCryptoStorageProvider, SimpleFsStorageProvider, Ru
 import Indexer from "./indexer.js";
 import Config from "./config.js";
 import { GetRoomMessagesRequest, GetRoomMessagesResponse, Received, RoomEventFilter, Event } from "./matrix.js";
+import fs from "node:fs";
 
 const directions = { forward: "f", reverse: "b" } as const;
 // Pending https://github.com/turt2live/matrix-bot-sdk/issues/250
@@ -10,7 +11,7 @@ async function* getRoomEvents(
     room: string,
     direction: "forward" | "reverse",
     filter?: RoomEventFilter
-): AsyncGenerator<Received<Event>[], void, void> {
+): AsyncGenerator<Received<any>[], void, void> {
     const path = `/_matrix/client/v3/rooms/${encodeURIComponent(room)}/messages`;
     const base: GetRoomMessagesRequest = {
         ...(direction && { dir: directions[direction] }),
@@ -33,6 +34,61 @@ function cleanContent(content: any) {
         content.body = content.body.replace(/@[a-zA-Z0-9_\-\.=]+:[a-zA-Z0-9\-.]+/g, "<mxid>");
     }
     return content;
+}
+
+type BackfillState = {
+    rooms: string[];
+};
+
+async function backfill(client: MatrixClient, indexer: Indexer) {
+    // Check if we have a state file
+    const filePath = "./storage/backfillState.json";
+    if (!fs.existsSync(filePath)) {
+        console.info("No backfill state found, writing empty state file");
+        fs.writeFileSync(filePath, "{\"rooms\":[]}");
+    }
+
+    const stateJson = fs.readFileSync(filePath, "utf-8");
+    const state: BackfillState = JSON.parse(stateJson);
+
+    console.info("Indexing existing messages")
+    const joined_rooms = await client.getJoinedRooms();
+
+    // Remvoe rooms we've already indexed.
+    // The already indexed are a list of strings in the rooms object on our state
+    const newRooms = joined_rooms.filter(room => !state.rooms.includes(room));
+
+    // Save the state file
+    fs.writeFileSync(filePath, JSON.stringify(state));
+
+    let editedEvents: string[] = [];
+
+    for (const room of newRooms) {
+        const pages = getRoomEvents(client, room, "reverse", { types: ["m.room.message"] });
+        for await (const page of pages) {
+            for (const event of page) {
+                if (editedEvents.includes(event["event_id"])) {
+                    continue;
+                }
+                if (event.content["m.relates_to"]) {
+                    if (event.content["m.relates_to"].rel_type === "m.replace") {
+                        editedEvents.push(event.content["m.relates_to"].event_id);
+                    }
+                }
+                
+                if (await client.crypto.isRoomEncrypted(room)) {
+                    await client.crypto.onRoomEvent(room, event);
+                } else {
+                    const res = await indexer.insert({ id: event["event_id"].replace("$", "").replace(":", "_").replace(".", "_"), sender: event["sender"], content: cleanContent(event["content"]), room_id: room });
+                    console.info(`Indexed message:`, res);
+                }
+            }
+        }
+
+        // Add the room to the state and save it
+        state.rooms.push(room);
+        fs.writeFileSync(filePath, JSON.stringify(state));
+    }
 }
 
 async function run() {
@@ -59,22 +115,7 @@ async function run() {
     await client.start();
     console.info("Bot started!");
 
-    // TODO: Only do this on the first run
-    console.info("Indexing existing messages")
-    const joined_rooms = await client.getJoinedRooms();
-    for (const room of joined_rooms) {
-        const pages = getRoomEvents(client, room, "reverse", { types: ["m.room.message"] });
-        for await (const page of pages) {
-            for (const event of page) {
-                if (await client.crypto.isRoomEncrypted(room)) {
-                    await client.crypto.onRoomEvent(room, event);
-                } else {
-                    const res = await indexer.insert({ id: event["event_id"].replace("$", "").replace(":", "_").replace(".", "_"), sender: event["sender"], content: cleanContent(event["content"]), room_id: room });
-                    console.info(`Indexed message:`, res);
-                }
-            }
-        }
-    }
+    await backfill(client, indexer);
 
 }
 

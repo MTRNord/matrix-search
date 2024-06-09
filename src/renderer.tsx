@@ -60,11 +60,11 @@ const MessageDocument = ({ query, queryResults }: PropsWithChildren<{ query: str
     )
 }
 
-export async function renderPDFToDisk(query: string) {
-    const queryResults = await indexer.search(query);
+export async function renderPDFToDisk(query: string, room_id?: string, sender?: string) {
+    const queryResults = await indexer.search(query, room_id, sender);
     //console.log(`Search results:`, queryResults);
     ReactPDF.renderToFile(<MessageDocument query={query} queryResults={queryResults} />, `output.pdf`);
 }
 
-await renderPDFToDisk("test");
+await renderPDFToDisk("test", undefined, '@mtrnord:midnightthoughts.space');
 console.log("PDF rendered to disk");
