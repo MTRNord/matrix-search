@@ -61,4 +61,8 @@ export default class Indexer {
 
         return { hits: results, estimatedTotalHits: results.length };
     }
+
+    public async delete(event_id: string) {
+        return await this.textIndex.deleteDocument(event_id);
+    }
 }

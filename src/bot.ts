@@ -75,7 +75,7 @@ async function backfill(client: MatrixClient, indexer: Indexer) {
                         editedEvents.push(event.content["m.relates_to"].event_id);
                     }
                 }
-                
+
                 if (await client.crypto.isRoomEncrypted(room)) {
                     await client.crypto.onRoomEvent(room, event);
                 } else {
@@ -106,6 +106,13 @@ async function run() {
     client.on("room.message", async (roomId, event) => {
         if (event["content"]["msgtype"] === "m.text") {
             console.info(`Received message in room ${roomId}`);
+            // TODO: Remove the original event if we have an edit
+            if (event.content["m.relates_to"]) {
+                if (event.content["m.relates_to"].rel_type === "m.replace") {
+                    console.info(`Removing original event ${event.content["m.relates_to"].event_id}`);
+                    await indexer.delete(event.content["m.relates_to"].event_id.replace("$", "").replace(":", "_").replace(".", "_"));
+                }
+            }
 
             const res = await indexer.insert({ id: event["event_id"].replace("$", "").replace(":", "_").replace(".", "_"), sender: event["sender"], content: cleanContent(event["content"]), room_id: roomId });
             console.info(`Indexed message:`, res);
