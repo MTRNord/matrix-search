@@ -2,7 +2,7 @@
   "name": "matrix-search",
   "version": "0.1.0",
   "description": "",
-  "main": "dist/main.js",
+  "main": "dist/bot.js",
   "type": "module",
   "scripts": {
     "build": "tsc"
@@ -11,10 +11,14 @@
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
+    "@types/react": "^18.3.3",
     "typescript": "^5.4.5"
   },
   "dependencies": {
     "@orama/orama": "^2.0.19",
-    "@orama/plugin-data-persistence": "^2.0.19"
+    "@orama/plugin-data-persistence": "^2.0.19",
+    "@react-pdf/renderer": "^3.4.4",
+    "matrix-bot-sdk": "^0.7.1",
+    "react": "^18.3.1"
   }
 }
