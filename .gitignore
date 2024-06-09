@@ -3,3 +3,7 @@ node_modules
 output.pdf
 storage
 db.msp
+config.yaml
+meilisearch*
+dumps
+data.ms

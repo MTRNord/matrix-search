@@ -1,5 +1,4 @@
-import { AnyOrama, create, insert, search } from '@orama/orama';
-import { persistToFile, restoreFromFile } from '@orama/plugin-data-persistence/server';
+import { Hits, MeiliSearch } from 'meilisearch';
 import fs from 'node:fs';
 
 /* This is the indexer. It is a wrapper around orama.
@@ -10,54 +9,32 @@ import fs from 'node:fs';
  * 
 */
 export default class Indexer {
-    private db?: AnyOrama;
+    private client = new MeiliSearch({
+        host: 'http://localhost:7700',
+        apiKey: 'aSampleMasterKey'
+    });
 
-    public async init() {
-        const filePath = 'db.msp';
-        // Check if database exists
-        if (!fs.existsSync(filePath)) {
-            // Create database
-            this.db = await create({
-                schema: {
-                    room_id: 'string',
-                    text: {
-                        body: 'string',
-                        formatted_body: 'string',
-                        "m.mentions": {
-                            user_ids: 'string[]'
-                        },
-                        "m.relates_to": {
-                            "m.in_reply_to": {
-                                event_id: 'string'
-                            }
-                        },
-                    }
-                },
-                components: {
-                    tokenizer: {
-                        stemmerSkipProperties: ['room_id']
-                    }
-                }
-            });
-            await persistToFile(this.db, 'binary', filePath);
-        } else {
-            // Load database
-            this.db = await restoreFromFile('binary', filePath);
-        }
-    }
+    constructor() { }
 
     // TODO: Properly type the data
     public async insert(data: any) {
-        if (!this.db) {
-            throw new Error('Database not initialized');
-        }
-        return await insert(this.db, data);
+        const index = this.client.index('text');
+        return await index.addDocuments([data], { primaryKey: 'id' });
     }
 
     public async search(query: string) {
-        if (!this.db) {
-            throw new Error('Database not initialized');
+        const index = this.client.index('text');
+        let results: Hits<Record<string, any>> = [];
+        let page = 1;
+        // Keep searching until we got everything
+        let response = await index.search(query, { page: page });
+        results = results.concat(response.hits);
+        while (page < response.totalPages) {
+            response = await index.search(query, { page: page });
+            results = results.concat(response.hits);
+            page++;
         }
-        return await search(this.db, { term: query });
+
+        return { hits: results, estimatedTotalHits: results.length };
     }
 }

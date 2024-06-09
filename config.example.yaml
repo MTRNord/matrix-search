@@ -1,0 +1,4 @@
+homeserverUrl: "https://matrix.midnightthoughts.space"
+accessToken: ""
+indexer:
+  filePath: "./db.msp"

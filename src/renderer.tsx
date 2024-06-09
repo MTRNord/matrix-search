@@ -1,7 +1,8 @@
 import React, { PropsWithChildren } from 'react';
 import ReactPDF, { Font, Page, Text, View, Document, StyleSheet } from '@react-pdf/renderer';
 import Indexer from './indexer.js';
-import { Results, AnyDocument } from '@orama/orama';
+import Config from './config.js';
+import { Hits, SearchParams, SearchResponse } from 'meilisearch';
 
 Font.registerEmojiSource({
     format: 'png',
@@ -20,11 +21,11 @@ const styles = StyleSheet.create({
 })
 
 const indexer = new Indexer();
-await indexer.init();
-await indexer.insert({ text: { body: "Hello, World with test!" } });
+
+const borderRadius = 5;
 
 // A pdf renderer
-const MessageDocument = ({ query, queryResults }: PropsWithChildren<{ query: string, queryResults: Results<AnyDocument> }>) => {
+const MessageDocument = ({ query, queryResults }: PropsWithChildren<{ query: string, queryResults: { hits: Hits<Record<string, any>>; estimatedTotalHits: number; } }>) => {
     return (
         <Document
             title={`Search results for: "${query}"`}
@@ -34,19 +35,23 @@ const MessageDocument = ({ query, queryResults }: PropsWithChildren<{ query: str
             <Page size="A4" style={styles.page}>
                 <View>
                     <Text>Search results for: {query}</Text>
-                    <Text>Results: {queryResults.count}</Text>
+                    <Text>Results: {queryResults.estimatedTotalHits}</Text>
 
                     {queryResults.hits.map((result, index) => (
-                        <View key={index}>
-                            <Text>{JSON.stringify(result.document, null, 2)}</Text>
+                        <View key={index} style={{ flexDirection: 'column', margin: 10, padding: 5, backgroundColor: '#e6e6e6', gap: 25, borderTopLeftRadius: borderRadius, borderTopRightRadius: borderRadius, borderBottomLeftRadius: borderRadius, borderBottomRightRadius: borderRadius }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }} >
+                                <Text>{result.room_id}</Text>
+                                <Text>{result.sender}</Text>
+                            </View>
+                            <Text>{result.content.body}</Text>
                         </View>
                     ))}
                 </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }} >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }} fixed>
                     <Text render={({ pageNumber, totalPages }) => (
                         `${pageNumber} / ${totalPages}`
-                    )} fixed />
-                    <Text fixed>
+                    )} />
+                    <Text>
                         Matrix Search Engine
                     </Text>
                 </View>
@@ -57,7 +62,9 @@ const MessageDocument = ({ query, queryResults }: PropsWithChildren<{ query: str
 
 export async function renderPDFToDisk(query: string) {
     const queryResults = await indexer.search(query);
+    //console.log(`Search results:`, queryResults);
     ReactPDF.renderToFile(<MessageDocument query={query} queryResults={queryResults} />, `output.pdf`);
 }
 
 await renderPDFToDisk("test");
+console.log("PDF rendered to disk");
