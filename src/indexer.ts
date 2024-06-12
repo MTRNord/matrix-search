@@ -25,7 +25,7 @@ export default class Indexer {
 
     public async search(query: string, room_id?: string, sender?: string) {
 
-        await this.textIndex.updateSearchableAttributes(['content.body', "sender", "content.m.mentions.user_id"]);
+        await this.textIndex.updateSearchableAttributes(['content.body', "sender", "content.m.mentions.user_id", "room_name"]);
         await this.textIndex.updateFilterableAttributes([
             'id',
             'sender',
