@@ -5,14 +5,20 @@
   "main": "dist/bot.js",
   "type": "module",
   "scripts": {
+    "lint": "eslint src",
     "build": "tsc"
   },
   "keywords": [],
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
+    "@eslint/js": "^9.4.0",
+    "@types/eslint__js": "^8.42.3",
+    "@types/node": "^20.14.2",
     "@types/react": "^18.3.3",
-    "typescript": "^5.4.5"
+    "eslint": "^9.4.0",
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^7.13.0"
   },
   "dependencies": {
     "@react-pdf/renderer": "^3.4.4",

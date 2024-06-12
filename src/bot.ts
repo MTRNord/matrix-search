@@ -1,7 +1,7 @@
 import { MatrixClient, RustSdkCryptoStorageProvider, SimpleFsStorageProvider, RustSdkCryptoStoreType } from "matrix-bot-sdk";
 import Indexer from "./indexer.js";
 import Config from "./config.js";
-import { GetRoomMessagesRequest, GetRoomMessagesResponse, Received, RoomEventFilter, Event } from "./matrix.js";
+import { GetRoomMessagesRequest, GetRoomMessagesResponse, Received, RoomEventFilter } from "./matrix.js";
 import fs from "node:fs";
 
 // Just a small wrapper for the cache
@@ -9,7 +9,7 @@ class Room {
     constructor(public room_id: string, public room_name: string) { }
 }
 
-let room_id_room_name_cache: Room[] = [];
+const room_id_room_name_cache: Room[] = [];
 
 const directions = { forward: "f", reverse: "b" } as const;
 // Pending https://github.com/turt2live/matrix-bot-sdk/issues/250
@@ -50,10 +50,10 @@ async function* getRoomEvents(
 }
 
 // Ensures no matrix IDs are in the content.body
-function cleanContent(content: any) {
+function cleanContent(content: Record<string, any>) {
     if (typeof content !== "object") return content;
     if (content.body) {
-        content.body = content.body.replace(/@[a-zA-Z0-9_\-\.=]+:[a-zA-Z0-9\-.]+/g, "<mxid>");
+        content.body = content.body.replace(/@[a-zA-Z0-9_\-.=]+:[a-zA-Z0-9\-.]+/g, "<mxid>");
     }
     return content;
 }
@@ -83,25 +83,25 @@ async function backfill(client: MatrixClient, indexer: Indexer) {
     // Save the state file
     fs.writeFileSync(filePath, JSON.stringify(state));
 
-    let editedEvents: string[] = [];
+    const editedEvents: string[] = [];
 
     for (const room of newRooms) {
         const pages = getRoomEvents(client, room, "reverse", { types: ["m.room.message"] });
         for await (const page of pages) {
             for (const event of page) {
-                if (editedEvents.includes(event["event_id"])) {
+                if (editedEvents.includes(event["event_id"] as string)) {
                     continue;
                 }
                 if (event.content["m.relates_to"]) {
                     if (event.content["m.relates_to"].rel_type === "m.replace") {
-                        editedEvents.push(event.content["m.relates_to"].event_id);
+                        editedEvents.push(event.content["m.relates_to"].event_id as string);
                     }
                 }
 
                 if (await client.crypto.isRoomEncrypted(room)) {
                     await client.crypto.onRoomEvent(room, event);
                 } else {
-                    handleMessages(indexer, client, room, event)
+                    await handleMessages(indexer, client, room, event)
                 }
             }
         }
@@ -125,9 +125,9 @@ function convertEventToDocument(event: any, roomId: string, room_name?: string |
         origin_server_ts: string,
         room_name?: string
     } = {
-        id: normalizeEventId(event["event_id"]),
+        id: normalizeEventId(event["event_id"] as string),
         sender: event["sender"],
-        content: cleanContent(event["content"]),
+        content: cleanContent(event["content"] as Record<string, any>),
         room_id: roomId,
         origin_server_ts: event["origin_server_ts"],
     }
@@ -144,12 +144,12 @@ async function handleMessages(indexer: Indexer, client: MatrixClient, roomId: st
         if (event.content["m.relates_to"]) {
             if (event.content["m.relates_to"].rel_type === "m.replace") {
                 console.info(`Removing original event ${event.content["m.relates_to"].event_id}`);
-                await indexer.delete(normalizeEventId(event.content["m.relates_to"].event_id));
+                await indexer.delete(normalizeEventId(event.content["m.relates_to"].event_id as string));
             }
         }
 
         const room = room_id_room_name_cache.find((room) => room.room_id === roomId);
-        let room_name;
+        let room_name: string;
         if (room === undefined) {
             try {
                 console.log("searching room_name")
@@ -181,7 +181,7 @@ async function run() {
 
     const client = new MatrixClient(homeserverUrl, accessToken, storageProvider, cryptoProvider);
 
-    client.on("room.message", async (roomId, event) => handleMessages(indexer, client, roomId, event));
+    client.on("room.message", (roomId: string, event: Record<string, any>) => void handleMessages(indexer, client, roomId, event));
 
     await client.start();
     console.info("Bot started!");

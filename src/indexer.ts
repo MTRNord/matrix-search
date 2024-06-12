@@ -1,5 +1,4 @@
 import { Hits, MeiliSearch } from 'meilisearch';
-import fs from 'node:fs';
 
 /* This is the indexer. It is a wrapper around orama.
  *
@@ -19,7 +18,7 @@ export default class Indexer {
     }
 
     // TODO: Properly type the data
-    public async insert(data: any) {
+    public async insert(data: Record<string, any>) {
         return await this.textIndex.addDocuments([data], { primaryKey: 'id' });
     }
 

@@ -1,8 +1,7 @@
 import React, { PropsWithChildren } from 'react';
 import ReactPDF, { Font, Page, Text, View, Document, StyleSheet } from '@react-pdf/renderer';
 import Indexer from './indexer.js';
-import Config from './config.js';
-import { Hits, SearchParams, SearchResponse } from 'meilisearch';
+import { Hits } from 'meilisearch';
 
 Font.registerEmojiSource({
     format: 'png',
@@ -64,7 +63,7 @@ const MessageDocument = ({ query, queryResults }: PropsWithChildren<{ query: str
 export async function renderPDFToDisk(query: string, room_id?: string, sender?: string) {
     const queryResults = await indexer.search(query, room_id, sender);
     //console.log(`Search results:`, queryResults);
-    ReactPDF.renderToFile(<MessageDocument query={query} queryResults={queryResults} />, `output.pdf`);
+    await ReactPDF.renderToFile(<MessageDocument query={query} queryResults={queryResults} />, `output.pdf`);
 }
 
 await renderPDFToDisk("woah", undefined, "@thibaultmartin:matrix.org");

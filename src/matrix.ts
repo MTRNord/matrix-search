@@ -1,11 +1,6 @@
 import type {
-    MatrixError, PowerLevelsEventContent as PowerLevels,
-    RoomCreateOptions as RoomCreateFullOptions,
+    PowerLevelsEventContent as PowerLevels,
 } from "matrix-bot-sdk";
-
-export interface RoomCreateOptions extends RoomCreateFullOptions {
-    preset?: Exclude<NonNullable<RoomCreateFullOptions["preset"]>, "trusted_private_chat">;
-}
 
 //
 // Events
@@ -22,7 +17,7 @@ export interface IStateEvent<T extends string, C> extends IEvent<T, C> {
 }
 
 export type Received<E extends Event> = E & {
-    content: E["content"] | {} /* redacted */;
+    content: E["content"] | Record<string, never> /* redacted */;
     origin_server_ts: number;
     room_id: string;
     sender: string;
@@ -39,7 +34,7 @@ export type MessageEvent<T = unknown> = (
             body: string;
             msgtype: "m.notice" | "m.text";
             "m.relates_to"?: { rel_type: "m.replace"; event_id: string };
-        } & ({} | { format: "org.matrix.custom.html"; formatted_body: string })
+        } & (Record<string, never> | { format: "org.matrix.custom.html"; formatted_body: string })
     >
     | (IEvent<"m.room.redaction", { reason?: string }> & { redacts: string })
 ) & { type: T };
@@ -58,7 +53,7 @@ type WidgetContent = {
     );
 
 export type StateEvent<T = unknown> = (
-    | IStateEvent<"im.vector.modular.widgets", {} | WidgetContent>
+    | IStateEvent<"im.vector.modular.widgets", Record<string, never> | WidgetContent>
     | IStateEvent<
         "io.element.widgets.layout",
         {
@@ -94,9 +89,6 @@ export type StateEvent<T = unknown> = (
 
 export type Event = MessageEvent | StateEvent;
 
-export type StateEventInput = Omit<StateEvent, "event_id" | "sender" | "state_key"> &
-    Partial<Pick<StateEvent, "state_key">>;
-
 //
 // Client API
 //
@@ -118,75 +110,3 @@ export interface RoomEventFilter {
     senders?: string[];
     types?: string[];
 }
-
-export interface Sync {
-    rooms?: {
-        join?: {
-            [id: string]: {
-                state: { events: Received<StateEvent>[] };
-                timeline: { events: Received<Event>[] };
-            };
-        };
-    };
-}
-
-// Workaround for turt2live/matrix-bot-sdk#197
-export const orNone = (error: MatrixError) => {
-    if (error.errcode === "M_NOT_FOUND") return undefined;
-
-    throw error;
-};
-
-//
-// Server constants
-//
-
-const defaultState: Record<string, StateEvent["content"]> = {
-    "m.room.guest_access/": { guest_access: "forbidden" },
-};
-
-export const moderatorLevel = 50;
-
-// As at https://github.com/matrix-org/synapse/blob/v1.67.0/synapse/handlers/room.py#L123
-export const resolvePreset = (
-    preset: RoomCreateOptions["preset"]
-): Pick<RoomCreateOptions, "initial_state"> => {
-    switch (preset) {
-        case undefined:
-            return {};
-        case "public_chat":
-            return {
-                initial_state: [
-                    { type: "m.room.guest_access", content: { guest_access: "forbidden" } },
-                    {
-                        type: "m.room.history_visibility",
-                        content: { history_visibility: "shared" },
-                    },
-                    { type: "m.room.join_rules", content: { join_rule: "public" } },
-                ],
-            };
-        case "private_chat":
-            return {
-                initial_state: [
-                    { type: "m.room.guest_access", content: { guest_access: "can_join" } },
-                    {
-                        type: "m.room.history_visibility",
-                        content: { history_visibility: "shared" },
-                    },
-                    { type: "m.room.join_rules", content: { join_rule: "invite" } },
-                ],
-            };
-        default:
-            throw new Error(`Not implemented for preset ${preset}`);
-    }
-};
-
-//
-// Helpers
-//
-
-export const isStateEvent = (event: Event): event is StateEvent => "state_key" in event;
-
-export const isUserId = (text: string): boolean => /^@[-.\w]+:[-.\w]+$/.test(text);
-
-export const permalinkPattern = /https:\/\/matrix\.to\/#\/([!#@][-.\w]+:[-.\w]+)/;
