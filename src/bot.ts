@@ -4,6 +4,13 @@ import Config from "./config.js";
 import { GetRoomMessagesRequest, GetRoomMessagesResponse, Received, RoomEventFilter, Event } from "./matrix.js";
 import fs from "node:fs";
 
+// Just a small wrapper for the cache
+class Room {
+    constructor(public room_id: string, public room_name: string) { }
+}
+
+let room_id_room_name_cache: Room[] = [];
+
 const directions = { forward: "f", reverse: "b" } as const;
 // Pending https://github.com/turt2live/matrix-bot-sdk/issues/250
 async function* getRoomEvents(
@@ -21,7 +28,22 @@ async function* getRoomEvents(
     let from: string | undefined;
     do {
         const query: GetRoomMessagesRequest = { ...base, ...(from && { from }) };
-        const response: GetRoomMessagesResponse = await client.doRequest("GET", path, query);
+
+        // We request but try at least 5 times
+        let response: GetRoomMessagesResponse | undefined = undefined;
+        for (let i = 0; i < 15; i++) {
+            try {
+                response = await client.doRequest("GET", path, query, null, 120 * 1000);
+                break;
+            } catch (e) {
+                console.error("Failed to get messages, retrying", e);
+            }
+        }
+
+        if (!response) {
+            console.error("Failed to get messages");
+            break;
+        }
         from = response.end;
         yield response.chunk;
     } while (from);
@@ -79,8 +101,7 @@ async function backfill(client: MatrixClient, indexer: Indexer) {
                 if (await client.crypto.isRoomEncrypted(room)) {
                     await client.crypto.onRoomEvent(room, event);
                 } else {
-                    const res = await indexer.insert(convertEventToDocument(event, room));
-                    console.info(`Indexed message:`, res);
+                    handleMessages(indexer, client, room, event)
                 }
             }
         }
@@ -95,12 +116,57 @@ function normalizeEventId(eventId: string) {
     return eventId.replace("$", "").replace(":", "_").replace(".", "_");
 }
 
-function convertEventToDocument(event: any, roomId: string) {
-    return {
+function convertEventToDocument(event: any, roomId: string, room_name?: string | null) {
+    const doc: {
+        id: string,
+        sender: string,
+        content: any,
+        room_id: string,
+        origin_server_ts: string,
+        room_name?: string
+    } = {
         id: normalizeEventId(event["event_id"]),
         sender: event["sender"],
         content: cleanContent(event["content"]),
-        room_id: roomId
+        room_id: roomId,
+        origin_server_ts: event["origin_server_ts"],
+    }
+    if (room_name) {
+        doc.room_name = room_name
+    }
+
+    return doc
+}
+
+async function handleMessages(indexer: Indexer, client: MatrixClient, roomId: string, event: any) {
+    if (event["content"]["msgtype"] === "m.text") {
+        console.info(`Received message in room ${roomId}`);
+        if (event.content["m.relates_to"]) {
+            if (event.content["m.relates_to"].rel_type === "m.replace") {
+                console.info(`Removing original event ${event.content["m.relates_to"].event_id}`);
+                await indexer.delete(normalizeEventId(event.content["m.relates_to"].event_id));
+            }
+        }
+
+        const room = room_id_room_name_cache.find((room) => room.room_id === roomId);
+        let room_name;
+        if (room === undefined) {
+            try {
+                console.log("searching room_name")
+                room_name = (await client.getRoomStateEvent(roomId, "m.room.name", ''))["name"];
+                if (room_name) {
+                    console.log("found room_name")
+                    room_id_room_name_cache.push(new Room(roomId, room_name));
+                }
+            } catch (e) {
+                console.log("not found room_name")
+            }
+        } else {
+            console.log("used existing room_name")
+            room_name = room.room_name;
+        }
+        const res = await indexer.insert(convertEventToDocument(event, roomId, room_name));
+        console.info(`Indexed message:`, res);
     }
 }
 
@@ -115,20 +181,7 @@ async function run() {
 
     const client = new MatrixClient(homeserverUrl, accessToken, storageProvider, cryptoProvider);
 
-    client.on("room.message", async (roomId, event) => {
-        if (event["content"]["msgtype"] === "m.text") {
-            console.info(`Received message in room ${roomId}`);
-            if (event.content["m.relates_to"]) {
-                if (event.content["m.relates_to"].rel_type === "m.replace") {
-                    console.info(`Removing original event ${event.content["m.relates_to"].event_id}`);
-                    await indexer.delete(normalizeEventId(event.content["m.relates_to"].event_id));
-                }
-            }
-
-            const res = await indexer.insert(convertEventToDocument(event, roomId));
-            console.info(`Indexed message:`, res);
-        }
-    });
+    client.on("room.message", async (roomId, event) => handleMessages(indexer, client, roomId, event));
 
     await client.start();
     console.info("Bot started!");

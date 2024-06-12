@@ -29,7 +29,8 @@ export default class Indexer {
         await this.textIndex.updateFilterableAttributes([
             'id',
             'sender',
-            'room_id'
+            'room_id',
+            'origin_server_ts'
         ])
 
         let results: Hits<Record<string, any>> = [];

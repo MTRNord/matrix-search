@@ -12,7 +12,8 @@ Font.registerEmojiSource({
 
 const styles = StyleSheet.create({
     page: {
-        fontSize: 16,
+        fontSize: 12,
+        fontFamily: 'Helvetica',
         flexDirection: 'column',
         justifyContent: 'space-between',
         backgroundColor: '#fff',
@@ -66,5 +67,5 @@ export async function renderPDFToDisk(query: string, room_id?: string, sender?: 
     ReactPDF.renderToFile(<MessageDocument query={query} queryResults={queryResults} />, `output.pdf`);
 }
 
-await renderPDFToDisk("test", undefined, '@mtrnord:midnightthoughts.space');
+await renderPDFToDisk("woah", undefined, "@thibaultmartin:matrix.org");
 console.log("PDF rendered to disk");
