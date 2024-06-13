@@ -113,18 +113,9 @@ async function handleMessages(indexer: Indexer, client: MatrixClient, roomId: st
 }
 
 async function handleSync(client: MatrixClient, indexer: Indexer) {
-    const sync = client.sync();
-    for await (const chunk of sync) {
-        // parse new events from the sync response
-        const joinedRooms = chunk.rooms.join as Record<string, any>;
-
-        // Loop over the joined rooms object (we need the key which is the room id and the events within)
-        for (const [roomId, room] of Object.entries(joinedRooms)) {
-            // Loop over the events in the room
-            for (const event of room.timeline.events) {
-                void handleMessages(indexer, client, roomId, event)
-            }
-        }
+    const events = client.sync();
+    for await (const [roomId, event] of events) {
+        void handleMessages(indexer, client, roomId, event)
     }
 }
 

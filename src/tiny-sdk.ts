@@ -74,7 +74,7 @@ export class MatrixClient {
         await fs.writeFile("./storage/bot.json", JSON.stringify({ syncToken }));
     }
 
-    async * sync(): AsyncGenerator<Record<string, any>, void, void> {
+    async * sync(): AsyncGenerator<[string, Record<string, any>], void, void> {
         if (!this.olmMachine || !this.token) {
             throw new Error("Client not started");
         }
@@ -189,7 +189,16 @@ export class MatrixClient {
                 }));
             }));
 
-            yield syncResp;
+            // parse new events from the sync response
+            const joinedRooms = syncResp.rooms.join as Record<string, any>;
+
+            // Loop over the joined rooms object (we need the key which is the room id and the events within)
+            for (const [roomId, room] of Object.entries(joinedRooms)) {
+                // Loop over the events in the room
+                for (const event of room.timeline.events) {
+                    yield [roomId, event];
+                }
+            }
         } while (this.syncRunning);
     }
 
