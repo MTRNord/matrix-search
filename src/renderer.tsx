@@ -34,20 +34,23 @@ const MessageDocument = ({ query, queryResults }: PropsWithChildren<{ query: str
         >
             <Page size="A4" style={styles.page}>
                 <View>
-                    <Text>Search results for: {query}</Text>
-                    <Text>Results: {queryResults.estimatedTotalHits}</Text>
-
-                    {queryResults.hits.map((result, index) => (
-                        <View key={index} style={{ flexDirection: 'column', margin: 10, padding: 5, backgroundColor: '#e6e6e6', gap: 25, borderTopLeftRadius: borderRadius, borderTopRightRadius: borderRadius, borderBottomLeftRadius: borderRadius, borderBottomRightRadius: borderRadius }}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }} >
-                                <Text>{result.room_id}</Text>
-                                <Text>{result.sender}</Text>
+                    <View style={{ fontSize: 10 }}>
+                        <Text>Search results for: {query}</Text>
+                        <Text>Results: {queryResults.estimatedTotalHits}</Text>
+                    </View>
+                    <View>
+                        {queryResults.hits.map((result, index) => (
+                            <View key={index} style={{ flexDirection: 'column', margin: 10, padding: 5, backgroundColor: '#e6e6e6', gap: 25, borderTopLeftRadius: borderRadius, borderTopRightRadius: borderRadius, borderBottomLeftRadius: borderRadius, borderBottomRightRadius: borderRadius, borderStyle: 'solid', borderWidth: 1, borderColor: '#00000' }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', fontSize: 10 }} >
+                                    <Text>{result.room_name ?? result.room_id}</Text>
+                                    <Text>{result.sender}</Text>
+                                </View>
+                                <Text>{result.content.body}</Text>
                             </View>
-                            <Text>{result.content.body}</Text>
-                        </View>
-                    ))}
+                        ))}
+                    </View>
                 </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }} fixed>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, fontSize: 10 }} fixed>
                     <Text render={({ pageNumber, totalPages }) => (
                         `${pageNumber} / ${totalPages}`
                     )} />
