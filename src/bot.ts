@@ -87,7 +87,7 @@ function convertEventToDocument(event: any, roomId: string, room_name?: string) 
         id: normalizeEventId(event["event_id"] as string),
         sender: event["sender"],
         content: cleanContent(event["content"] as Record<string, any>),
-        room_id: normalizeEventId(roomId),
+        room_id: roomId,
         origin_server_ts: event["origin_server_ts"],
     }
     if (room_name) {
