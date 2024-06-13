@@ -17,13 +17,15 @@
     "@types/node": "^20.14.2",
     "@types/react": "^18.3.3",
     "eslint": "^9.4.0",
+    "eslint-plugin-tsdoc": "^0.3.0",
     "typescript": "^5.4.5",
     "typescript-eslint": "^7.13.0"
   },
   "dependencies": {
+    "@matrix-org/matrix-sdk-crypto-nodejs": "0.2.0-beta.1",
     "@react-pdf/renderer": "^3.4.4",
     "@sinclair/typebox": "^0.32.31",
-    "matrix-bot-sdk": "^0.7.1",
+    "got": "^14.4.1",
     "meilisearch": "^0.40.0",
     "react": "^18.3.1",
     "yaml": "^2.4.5"
