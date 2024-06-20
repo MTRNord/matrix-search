@@ -1,2 +1,5 @@
 homeserverUrl: "https://matrix.midnightthoughts.space"
 accessToken: ""
+meilisearch:
+  host: "http://localhost:7700"
+  masterKey: "masterKey"

@@ -19,7 +19,7 @@ pnpm run build
 
 ## Usage
 
-To start the index you first have to fill the confix.yaml.
+To start the index you first have to fill the config.yaml.
 Have a look at the config.example.yaml for an example.
 
 When you are done you can start the bot using:

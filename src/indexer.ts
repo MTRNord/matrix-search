@@ -1,4 +1,7 @@
 import { Hits, MeiliSearch } from 'meilisearch';
+import Config from './config.js';
+
+const config = new Config();
 
 /* This is the indexer. It is a wrapper around orama.
  *
@@ -9,8 +12,8 @@ import { Hits, MeiliSearch } from 'meilisearch';
 */
 export default class Indexer {
     private readonly client = new MeiliSearch({
-        host: 'http://localhost:7700',
-        apiKey: 'aSampleMasterKey'
+        host: config.meiliSearchHost,
+        apiKey: config.meiliSearchKey
     });
     private readonly textIndex = this.client.index('text');
 

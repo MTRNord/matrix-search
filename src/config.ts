@@ -7,6 +7,10 @@ import YAML from 'yaml';
 const ConfigSchema = Type.Object({
     homeserverUrl: Type.String(),
     accessToken: Type.String(),
+    meilisearch: Type.Object({
+        host: Type.String(),
+        masterKey: Type.String()
+    })
 });
 
 export type ConfigSchema = Static<typeof ConfigSchema>;
@@ -53,6 +57,24 @@ export default class Config {
 
     public set accessToken(value: string) {
         this.config.accessToken = value;
+        this.save();
+    }
+
+    public get meiliSearchHost(): string {
+        return this.config.meilisearch.host;
+    }
+
+    public set meiliSearchHost(value: string) {
+        this.config.meilisearch.host = value;
+        this.save();
+    }
+
+    public get meiliSearchKey(): string {
+        return this.config.meilisearch.masterKey;
+    }
+
+    public set meiliSearchKey(value: string) {
+        this.config.meilisearch.masterKey = value;
         this.save();
     }
 
