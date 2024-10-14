@@ -1,8 +1,10 @@
 import React, { PropsWithChildren } from 'react';
-import ReactPDF, { Font, Page, Text, View, Document, StyleSheet, Link } from '@react-pdf/renderer';
+import ReactPDF, { Font, Page, Text, View, Document, StyleSheet, Link, renderToBuffer } from '@react-pdf/renderer';
 import Indexer from './indexer.js';
 import { Hits } from 'meilisearch';
 import prompts, { PromptObject } from 'prompts';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
 Font.registerEmojiSource({
     format: 'png',
@@ -23,10 +25,10 @@ const styles = StyleSheet.create({
 
 const indexer = new Indexer();
 
-const borderRadius = 5;
+const borderRadius = 2;
 
 // A pdf renderer
-const MessageDocument = ({ query, room_id, sender, queryResults }: PropsWithChildren<{ query: string, room_id?: string, sender?: string, queryResults: { hits: Hits<Record<string, any>>; estimatedTotalHits: number; } }>) => {
+export const MessageDocument = ({ query, room_id, sender, queryResults }: PropsWithChildren<{ query: string, room_id?: string, sender?: string, queryResults: { hits: Hits<Record<string, any>>; estimatedTotalHits: number; } }>) => {
     return (
         <Document
             title={`Search results for: "${query}"`}
@@ -57,8 +59,25 @@ const MessageDocument = ({ query, room_id, sender, queryResults }: PropsWithChil
                     </View>
                     <View>
                         {queryResults.hits.map((result, index) => (
-                            <View wrap={false} key={index} style={{ flexDirection: 'column', margin: 10, padding: 5, backgroundColor: '#e6e6e6', gap: 25, borderTopLeftRadius: borderRadius, borderTopRightRadius: borderRadius, borderBottomLeftRadius: borderRadius, borderBottomRightRadius: borderRadius, borderStyle: 'solid', borderWidth: 1, borderColor: '#00000' }}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', fontSize: 10 }} >
+                            <View
+                                wrap={result.content.body.length > 500}
+                                key={index}
+                                style={{
+                                    flexDirection: 'column',
+                                    margin: 8,
+                                    padding: 12,
+                                    backgroundColor: '#e6e6e6',
+                                    gap: 16,
+                                    borderTopLeftRadius: borderRadius,
+                                    borderTopRightRadius: borderRadius,
+                                    borderBottomLeftRadius: borderRadius,
+                                    borderBottomRightRadius: borderRadius,
+                                    borderStyle: 'solid',
+                                    borderWidth: 1,
+                                    borderColor: '#00000'
+                                }}>
+                                <View
+                                    style={{ flexDirection: 'row', justifyContent: 'space-between', fontSize: 10 }}>
                                     <Text>{result.room_name ?? result.room_id}</Text>
                                     <View style={{ flexDirection: 'row' }}>
                                         <Text>{result.sender}</Text>
@@ -69,21 +88,21 @@ const MessageDocument = ({ query, room_id, sender, queryResults }: PropsWithChil
                             </View>
                         ))}
                     </View>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, fontSize: 10 }} fixed>
-                    <Text render={({ pageNumber, totalPages }) => (
-                        `${pageNumber} / ${totalPages}`
-                    )} />
-                    <Text>
-                        Matrix Search Engine
-                    </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, fontSize: 10 }} fixed>
+                        <Text render={({ pageNumber, totalPages }) => (
+                            `${pageNumber} / ${totalPages}`
+                        )} />
+                        <Text>
+                            Matrix Search Engine
+                        </Text>
+                    </View>
                 </View>
             </Page>
         </Document >
     )
 }
 
-export async function renderPDFToDisk(query: string, room_id?: string, sender?: string) {
+export async function renderPDFToDisk(query: string, room_id?: string, sender?: string, includeRedactions: boolean = false, includeEdits: boolean = false) {
     let cleanedRoomId = room_id?.trim();
     let cleanedSender = sender?.trim();
     if (cleanedRoomId === "") {
@@ -93,33 +112,67 @@ export async function renderPDFToDisk(query: string, room_id?: string, sender?: 
         cleanedSender = undefined;
     }
     const queryResults = await indexer.search(query, cleanedRoomId, cleanedSender);
+
+    // Filter out redactions if the user does not want them
+    if (!includeRedactions) {
+        queryResults.hits = queryResults.hits.filter((hit) => !hit.redacted);
+    }
+    // Filter out edits if the user does not want them
+    if (!includeEdits) {
+        queryResults.hits = queryResults.hits.filter((hit) => !hit.edited);
+    }
+
     //console.log(`Search results:`, queryResults);
     await ReactPDF.renderToFile(<MessageDocument query={query} room_id={cleanedRoomId} sender={cleanedSender} queryResults={queryResults} />, `output.pdf`);
 }
 
+export async function renderPDFToBufferWithData(queryResults: { hits: Hits<Record<string, any>>; estimatedTotalHits: number; }, query?: string, room_id?: string, sender?: string,): Promise<Buffer> {
+    return await renderToBuffer(<MessageDocument query={query ?? ""} room_id={room_id} sender={sender} queryResults={queryResults} />);
+}
 
-const questions: PromptObject<string>[] = [
-    {
-        type: 'text',
-        name: 'query',
-        initial: "",
-        message: 'Enter your search query:',
-    },
-    {
-        type: 'text',
-        name: 'room_id',
-        initial: undefined,
-        message: 'Enter the Room ID:',
-    },
-    {
-        type: 'text',
-        name: 'sender',
-        initial: undefined,
-        message: 'Enter the sender:',
-    }
-]
 
-const response = await prompts(questions);
+const pathToThisFile = resolve(fileURLToPath(import.meta.url))
+const pathPassedToNode = resolve(process.argv[1])
+const isThisFileBeingRunViaCLI = pathToThisFile.includes(pathPassedToNode)
 
-await renderPDFToDisk(response.query as string, response.room_id as string | undefined, response.sender as string | undefined);
-console.log("PDF rendered to disk");
+if (isThisFileBeingRunViaCLI) {
+    const questions: PromptObject<string>[] = [
+        {
+            type: 'text',
+            name: 'query',
+            initial: "",
+            message: 'Enter your search query:',
+        },
+        {
+            type: 'text',
+            name: 'room_id',
+            initial: undefined,
+            message: 'Enter the Room ID:',
+        },
+        {
+            type: 'text',
+            name: 'sender',
+            initial: undefined,
+            message: 'Enter the sender:',
+        },
+        // Ask if the redactions should be included
+        {
+            type: 'confirm',
+            name: 'include_redactions',
+            initial: false,
+            message: 'Include redactions in the search results?',
+        },
+        // Ask if the edits should be included
+        {
+            type: 'confirm',
+            name: 'include_edits',
+            initial: false,
+            message: 'Include edits in the search results?',
+        }
+    ]
+
+    const response = await prompts(questions);
+
+    await renderPDFToDisk(response.query as string, response.room_id as string | undefined, response.sender as string | undefined, response.include_redactions as boolean, response.include_edits as boolean);
+    console.log("PDF rendered to disk");
+}

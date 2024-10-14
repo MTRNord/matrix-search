@@ -7,6 +7,7 @@ import YAML from 'yaml';
 const ConfigSchema = Type.Object({
     homeserverUrl: Type.String(),
     accessToken: Type.String(),
+    masMode: Type.Boolean(),
     meilisearch: Type.Object({
         host: Type.String(),
         masterKey: Type.String()
@@ -25,6 +26,7 @@ export default class Config {
         const config = {
             homeserverUrl: process.env.HOMESERVER_URL,
             accessToken: process.env.ACCESS_TOKEN,
+            masMode: process.env.MAS_MODE === 'true',
         };
 
         // load the config file async and merge it with the env
@@ -50,6 +52,11 @@ export default class Config {
         return this.config.accessToken;
     }
 
+
+    public get masMode(): boolean {
+        return this.config.masMode;
+    }
+
     public set homeserverUrl(value: string) {
         this.config.homeserverUrl = value;
         this.save();
@@ -57,6 +64,11 @@ export default class Config {
 
     public set accessToken(value: string) {
         this.config.accessToken = value;
+        this.save();
+    }
+
+    public set masMode(value: boolean) {
+        this.config.masMode = value;
         this.save();
     }
 

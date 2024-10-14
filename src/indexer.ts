@@ -25,8 +25,7 @@ export default class Indexer {
         return await this.textIndex.addDocuments([data], { primaryKey: 'id' });
     }
 
-    public async search(query: string, room_id?: string, sender?: string) {
-
+    public async search(query: string, room_id?: string, sender?: string, limit?: number) {
         await this.textIndex.updateSearchableAttributes(['content.body', "sender", "content.m.mentions.user_id", "room_name"]);
         await this.textIndex.updateFilterableAttributes([
             'id',
@@ -60,6 +59,10 @@ export default class Indexer {
             response = await this.textIndex.search(query, { page: page, filter: filters });
             results = results.concat(response.hits);
             page++;
+        }
+
+        if (limit) {
+            results = results.slice(0, limit);
         }
 
         return { hits: results, estimatedTotalHits: results.length };

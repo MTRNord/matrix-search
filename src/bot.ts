@@ -2,7 +2,7 @@ import Indexer from "./indexer.js";
 import Config from "./config.js";
 import fs from "node:fs";
 import { MatrixClient } from "./tiny-sdk.js";
-import { RoomId } from "@matrix-org/matrix-sdk-crypto-nodejs";
+import { renderPDFToBufferWithData } from "./renderer.js";
 
 // Ensures no matrix IDs are in the content.body
 function cleanContent(content: Record<string, any>) {
@@ -54,13 +54,8 @@ async function backfill(client: MatrixClient, indexer: Indexer) {
                     }
                 }
 
-                if (event["type"] === "m.room.encrypted") {
-                    const rawEvent = await client.olmMachine?.decryptRoomEvent(JSON.stringify(event), new RoomId(room));
-                    if (rawEvent) {
-                        event = JSON.parse(rawEvent.event);
-                    }
-                }
-                void handleMessages(indexer, client, room, event)
+                event = await client.decryptEvent(event, room);
+                void handleMessages(indexer, client, room, event, true);
 
             }
         }
@@ -97,8 +92,35 @@ function convertEventToDocument(event: any, roomId: string, room_name?: string) 
     return doc
 }
 
-async function handleMessages(indexer: Indexer, client: MatrixClient, roomId: string, event: any) {
+async function handleMessages(indexer: Indexer, client: MatrixClient, roomId: string, event: any, historical = false) {
     if (event["content"]["msgtype"] === "m.text") {
+        const user = await client.whoami();
+        // If command and sender is bot user then handle as a command and not index
+        if (event["content"]["body"].startsWith("!") && event["sender"] === user.user_id && !historical) {
+            // Get the command directly after the ! (e.g. !search -> search)
+            const command = event["content"]["body"].split(" ")[0].substring(1);
+            const args: string[] = event["content"]["body"].split(" ").slice(1);
+
+            // Render the amount of events given in the argument (e.g. !last 5) as a pdf and send it into the room
+            if (command === "last") {
+                console.info(`Received "last" command in room ${roomId}`);
+
+                const amount = parseInt(args[0]);
+                console.info(`Rendering last ${amount} messages as PDF`);
+                const results = await indexer.search("", roomId, undefined, amount);
+                console.info(`Got ${results.hits.length} results`);
+                const pdf = await renderPDFToBufferWithData(results, "", roomId, undefined);
+
+                const event_id = event["event_id"] as string;
+                await client.sendFile(roomId, event_id, "Here is the PDF with the last " + amount + " messages", pdf);
+
+                // Redact the original command message
+                await client.redactEvent(roomId, event_id, "Redacted by bot");
+                return;
+            }
+        }
+
+
         //console.info(`Received message in room ${roomId}`);
         if (event.content["m.relates_to"]) {
             if (event.content["m.relates_to"].rel_type === "m.replace") {
@@ -108,11 +130,13 @@ async function handleMessages(indexer: Indexer, client: MatrixClient, roomId: st
         }
 
         const room_name = await client.getRoomName(roomId);
-        await indexer.insert(convertEventToDocument(event, roomId, room_name));
+
+        void indexer.insert(convertEventToDocument(event, roomId, room_name));
     }
 }
 
 async function handleSync(client: MatrixClient, indexer: Indexer) {
+    console.info("Starting sync");
     const events = client.sync();
     for await (const [roomId, event] of events) {
         void handleMessages(indexer, client, roomId, event)
