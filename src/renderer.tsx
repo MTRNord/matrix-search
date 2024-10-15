@@ -60,7 +60,7 @@ export const MessageDocument = ({ query, room_id, sender, queryResults }: PropsW
                     <View>
                         {queryResults.hits.map((result, index) => (
                             <View
-                                wrap={result.content.body.length > 500}
+                                wrap={result.content.body?.length > 500}
                                 key={index}
                                 style={{
                                     flexDirection: 'column',

@@ -29,7 +29,7 @@ export type WhoAmIResponse = {
 }
 
 export class MatrixClient {
-    private userId?: UserId;
+    public userId?: UserId;
     private deviceId?: DeviceId;
     public olmMachine?: OlmMachine;
     private syncRunning: boolean = true;
@@ -219,6 +219,11 @@ export class MatrixClient {
     }
 
     async decryptEvent(event: Record<string, any>, roomId: string): Promise<Record<string, any>> {
+        if (event["type"] === "m.room.member") {
+            if (event.content.membership !== 'join' && event.content.membership !== 'invite') return event;
+            await this.addTrackedUsers([event["state_key"] as string])
+            return event;
+        }
         if (event.type === "m.room.encrypted") {
             const members = await this.getRoomMembers(roomId, ['join', 'invite']);
             await this.addTrackedUsers(members.map(e => e["state_key"] as string))

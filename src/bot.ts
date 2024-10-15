@@ -94,9 +94,9 @@ function convertEventToDocument(event: any, roomId: string, room_name?: string) 
 
 async function handleMessages(indexer: Indexer, client: MatrixClient, roomId: string, event: any, historical = false) {
     if (event["content"]["msgtype"] === "m.text") {
-        const user = await client.whoami();
+        const user = client.userId?.toString();
         // If command and sender is bot user then handle as a command and not index
-        if (event["content"]["body"].startsWith("!") && event["sender"] === user.user_id && !historical) {
+        if (event["content"]["body"].startsWith("!") && event["sender"] === user && !historical) {
             // Get the command directly after the ! (e.g. !search -> search)
             const command = event["content"]["body"].split(" ")[0].substring(1);
             const args: string[] = event["content"]["body"].split(" ").slice(1);
